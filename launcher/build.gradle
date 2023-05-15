@@ -24,6 +24,8 @@ android {
         versionName '0.1'
     }
 
+    ndkVersion = "21.1.6352462"
+
     aaptOptions {
         noCompress = ['.unity3d', '.ress', '.resource', '.obb', '.bundle', '.unityexp'] + unityStreamingAssets.tokenize(', ')
         ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~"

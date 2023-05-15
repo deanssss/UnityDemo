@@ -25,6 +25,8 @@ android {
         consumerProguardFiles 'proguard-unity.txt'
     }
 
+    ndkVersion = "21.1.6352462"
+
     lintOptions {
         abortOnError false
     }
