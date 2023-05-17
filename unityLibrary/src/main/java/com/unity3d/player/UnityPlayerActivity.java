@@ -3,19 +3,17 @@ package com.unity3d.player;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.PixelFormat;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowManager;
-import android.os.Process;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
 public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecycleEvents
 {
+    private static final String TAG = "UnityPlayerActivity";
     protected UnityPlayer mUnityPlayer; // don't change the name of this variable; referenced from native code
 
     // Override this in your custom UnityPlayerActivity to tweak the command line arguments passed to the Unity Android Player
@@ -45,8 +43,22 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
         container.addView(mUnityPlayer, 0);
         mUnityPlayer.requestFocus();
 
-        findViewById(R.id.action_bt).setOnClickListener(v -> {
+        findViewById(R.id.action1_bt).setOnClickListener(v -> {
             UnityPlayer.UnitySendMessage("Canvas", "setText", "hello~" + (i++));
+        });
+        findViewById(R.id.action2_bt).setOnClickListener(v -> {
+            startActivity(new Intent(this, TestActivity.class));
+        });
+        findViewById(R.id.action3_bt).setOnClickListener(v -> {
+            mUnityPlayer.setVisibility(View.INVISIBLE);
+            mUnityPlayer.pause();
+            FrameLayout.LayoutParams lp = ((FrameLayout.LayoutParams) container.getLayoutParams());
+            lp.width = lp.width == -1 ? 700 : -1;
+            container.setLayoutParams(lp);
+            runOnUiThread(() ->{
+                mUnityPlayer.resume();
+                mUnityPlayer.setVisibility(View.VISIBLE);
+            });
         });
     }
 
@@ -174,5 +186,11 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
 
     public void showToast(String msg) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        runOnUiThread(() -> mUnityPlayer.quit());
+        super.onBackPressed();
     }
 }
