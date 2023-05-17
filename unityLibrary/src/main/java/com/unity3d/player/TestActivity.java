@@ -14,7 +14,7 @@ public class TestActivity extends Activity {
             finish();
         });
         findViewById(R.id.reopen_bt).setOnClickListener(v -> {
-            Intent intent = new Intent(this, UnityPlayerActivity.class);
+            Intent intent = new Intent(this, Camera1SurfaceActivity.class);
             startActivity(intent);
         });
     }

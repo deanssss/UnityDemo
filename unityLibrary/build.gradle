@@ -1,8 +1,8 @@
 apply plugin: 'com.android.library'
 
-
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "androidx.core:core:1.6.0"
 }
 
 android {

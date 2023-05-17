@@ -9,6 +9,7 @@
   <uses-feature android:name="android.hardware.touchscreen.multitouch" android:required="false" />
   <uses-feature android:name="android.hardware.touchscreen.multitouch.distinct" android:required="false" />
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.CAMERA" />
 
   <application android:extractNativeLibs="true">
     <activity android:name="com.unity3d.player.UnityPlayerActivity"
@@ -28,6 +29,15 @@
 
     <activity
         android:name=".TestActivity"
+        android:theme="@style/UnityThemeSelector"
+        android:screenOrientation="sensorLandscape"
+        android:launchMode="singleTask"
+        android:taskAffinity="com.unity3d.player.test"
+        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
+        android:resizeableActivity="false" />
+
+    <activity
+        android:name=".Camera1SurfaceActivity"
         android:theme="@style/UnityThemeSelector"
         android:screenOrientation="sensorLandscape"
         android:launchMode="singleTask"
