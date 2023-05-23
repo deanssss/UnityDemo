@@ -1,53 +1,32 @@
 package com.unity3d.player;
 import android.opengl.GLES30;
 
-/**
- * @Author: liuwei
- * @Create: 2019/6/26 16:48
- * @Description:
- */
-public class RenderUtil {
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 
-    /**
-     * 编译
-     *
-     * @param type       顶点着色器:GLES30.GL_VERTEX_SHADER
-     *                   片段着色器:GLES30.GL_FRAGMENT_SHADER
-     * @param shaderCode
-     * @return
-     */
+public class RenderUtil {
     public static int compileShader(int type, String shaderCode) {
-        //创建一个着色器
         final int shaderId = GLES30.glCreateShader(type);
-        if (shaderId != 0) {
-            //加载到着色器
-            GLES30.glShaderSource(shaderId, shaderCode);
-            //编译着色器
-            GLES30.glCompileShader(shaderId);
-            //检测状态
-            final int[] compileStatus = new int[1];
-            GLES30.glGetShaderiv(shaderId, GLES30.GL_COMPILE_STATUS, compileStatus, 0);
-            if (compileStatus[0] == 0) {
-                String logInfo = GLES30.glGetShaderInfoLog(shaderId);
-                System.err.println(logInfo);
-                //创建失败
-                GLES30.glDeleteShader(shaderId);
-                return 0;
-            }
-            return shaderId;
-        } else {
-            //创建失败
+        if (shaderId == 0) {
             return 0;
         }
+
+        GLES30.glShaderSource(shaderId, shaderCode);
+        GLES30.glCompileShader(shaderId);
+        final int[] compileStatus = new int[1];
+        GLES30.glGetShaderiv(shaderId, GLES30.GL_COMPILE_STATUS, compileStatus, 0);
+        if (compileStatus[0] == 0) {
+            String logInfo = GLES30.glGetShaderInfoLog(shaderId);
+            System.err.println(logInfo);
+            //编译失败后删除
+            GLES30.glDeleteShader(shaderId);
+            return 0;
+        }
+        return shaderId;
     }
 
-    /**
-     * 链接小程序
-     *
-     * @param vertexShaderId   顶点着色器
-     * @param fragmentShaderId 片段着色器
-     * @return
-     */
     public static int linkProgram(int vertexShaderId, int fragmentShaderId) {
         final int programId = GLES30.glCreateProgram();
         if (programId != 0) {
@@ -72,4 +51,19 @@ public class RenderUtil {
         }
     }
 
+    public static final int BYTES_PER_FLOAT = 4;
+    public static FloatBuffer createFloatBuffer(float[] data) {
+        return ByteBuffer.allocateDirect(data.length * BYTES_PER_FLOAT)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
+                .put(data);
+    }
+
+    public static final int BYTES_PER_SHORT = 2;
+    public static ShortBuffer createShortBuffer(short[] data) {
+        return ByteBuffer.allocateDirect(data.length * BYTES_PER_SHORT)
+                .order(ByteOrder.nativeOrder())
+                .asShortBuffer()
+                .put(data);
+    }
 }

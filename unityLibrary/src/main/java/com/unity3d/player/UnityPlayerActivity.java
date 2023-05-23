@@ -1,10 +1,12 @@
 package com.unity3d.player;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.opengl.EGL14;
-import android.opengl.GLES11Ext;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
@@ -16,9 +18,10 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import androidx.annotation.DrawableRes;
+
 import java.nio.FloatBuffer;
+import java.nio.ShortBuffer;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -26,8 +29,7 @@ import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.opengles.GL10;
 
-public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecycleEvents
-{
+public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecycleEvents {
     private static final String TAG = "UnityPlayerActivity";
     protected UnityPlayer mUnityPlayer; // don't change the name of this variable; referenced from native code
     private EGL10 egl = ((EGL10) EGLContext.getEGL());
@@ -46,8 +48,7 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // Setup activity layout
-    @Override protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.unity_player_activity);
@@ -106,6 +107,7 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
             FrameLayout container2 = findViewById(R.id.container2_fl);
             container2.addView(glSurfaceView, lp);
 
+            // 共享EGLContext的构建
             glSurfaceView.setEGLContextFactory(new GLSurfaceView.EGLContextFactory() {
                 @Override
                 public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
@@ -122,36 +124,36 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
                 }
             });
             glSurfaceView.setRenderer(new UnityShareTextureRender(textureId));
-//            SurfaceTexture surfaceTexture = new SurfaceTexture(textureId);
-//            surfaceTexture.setDefaultBufferSize(width, height);
-//            surfaceTexture.setOnFrameAvailableListener(v -> glSurfaceView.requestRender());
-
         });
     }
 
     class UnityShareTextureRender implements GLSurfaceView.Renderer {
         public int textureId;
-        public boolean is2d = true;
 
-        private int program;
-        private String verticesShader
-                = "attribute vec4 a_Position; \n"
-                + "attribute vec2 a_TexCoordinate; \n"
-                + "varying vec2 v_TexCoord; \n"
-                + "void main() { \n"
-                + "    v_TexCoord = a_TexCoordinate; \n"
-                + "    gl_Position = a_Position; \n"
-                + "}";
-        private String fragmentShader
-                = "precision mediump float; \n"
-                + "uniform sampler2D u_Texture; \n"
-                + "varying vec2 v_TexCoord; \n"
-                + "void main() { \n"
-                + "    gl_FragColor = texture2D(u_Texture, v_TexCoord);"
-                + "}";
-        private int vPosition;
-        private int texCoord;
-        private int uTexture;
+        private final float[] vertex = {
+                -1f,  1f, 0f, // tl
+                -1f, -1f, 0f, // bl
+                1f, -1f, 0f, // br
+                1f,  1f, 0f, // tr
+        };
+        private final short[] index = {
+                0, 1, 2, 0, 2, 3
+        };
+        private final float[] textureVertex = {
+                0f, 0f, // tl
+                0f, 1f, // bl
+                1f, 1f, // br
+                1f, 0f, // tr
+        };
+
+        private ShortBuffer indexBuffer;
+        private FloatBuffer texBuffer;
+        private FloatBuffer vertexBuffer;
+
+        private int program = 0;
+        private int aPosition = 0;
+        private int uTextureUnit = 0;
+        private int aTexCoord = 0;
 
         public UnityShareTextureRender(int textureId) {
             this.textureId = textureId;
@@ -159,95 +161,86 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
 
         @Override
         public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-            GLES30.glClearColor(0.5f, 0.5f, 0f, 0.5f);
-            if (is2d) loadTexture2D();
-            else loadTexture();
+            program = createProgram(
+                    ResReadUtils.readResource(UnityPlayerActivity.this, R.raw.demo_vertex_shader),
+                    ResReadUtils.readResource(UnityPlayerActivity.this, R.raw.demo_fragment_shader));
+            aPosition = GLES30.glGetAttribLocation(program, "a_Position");
+            aTexCoord = GLES30.glGetAttribLocation(program, "a_TextureCoordinates");
+            uTextureUnit = GLES30.glGetUniformLocation(program, "u_TextureUnit");
+
+            vertexBuffer = RenderUtil.createFloatBuffer(vertex);
+            texBuffer = RenderUtil.createFloatBuffer(textureVertex);
+            indexBuffer = RenderUtil.createShortBuffer(index);
+
+            loadTexture(UnityPlayerActivity.this, textureId, R.drawable.sample);
+            GLES30.glClearColor(0f, 0f, 0f, 0f);
+        }
+
+        private void loadTexture(Context context, int textureId, @DrawableRes int imgRes) {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inScaled = true;
+            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), imgRes, options);
+            if (bitmap == null) {
+                throw new RuntimeException("cannot decode image by id: $textureIds.");
+            }
+
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId);
+
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR_MIPMAP_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
+            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
+
+            // 加载纹理到OpenGL， 读入bitmap定义的位图数据，并把它复制到当前绑定的纹理对象上。
+            // TODO 不加载纹理，使用unity传过来的纹理
+//            GLUtils.texImage2D(GLES30.GL_TEXTURE_2D, 0, bitmap, 0);
+            bitmap.recycle();
+            // 为当前绑定的纹理自动生成所有需要的多级渐远纹理，生成MIP贴图
+            GLES30.glGenerateMipmap(GLES30.GL_TEXTURE_2D);
+            // 避免误改动到这个纹理，提前解绑定
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0);
         }
 
         @Override
         public void onSurfaceChanged(GL10 gl, int width, int height) {
-            program = createProgram(verticesShader, fragmentShader);
-            vPosition = GLES30.glGetAttribLocation(program, "a_Position");
-            texCoord = GLES30.glGetAttribLocation(program, "a_TexCoordinate");
-            uTexture = GLES30.glGetUniformLocation(program, "u_Texture");
             GLES30.glViewport(0, 0, width, height);
         }
 
-        int change = 0;
         @Override
         public void onDrawFrame(GL10 gl) {
             GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
 
-            FloatBuffer vertices = getVertices(change++);
-            GLES30.glUseProgram(program);
-            GLES30.glVertexAttribPointer(vPosition, 2, GLES30.GL_FLOAT, false, 0, vertices);
-            GLES30.glEnableVertexAttribArray(vPosition);
-
-
+            // 顶点数据
+            vertexBuffer.position(0);
+            GLES30.glVertexAttribPointer(aPosition, 3, GLES30.GL_FLOAT, false, 0, vertexBuffer);
+            GLES30.glEnableVertexAttribArray(aPosition);
+            // 纹理顶点
+            texBuffer.position(0);
+            GLES30.glEnableVertexAttribArray(aTexCoord);
+            GLES30.glVertexAttribPointer(aTexCoord, 2, GLES30.GL_FLOAT, false, 0, texBuffer);
             // 设置纹理
             GLES30.glActiveTexture(GLES30.GL_TEXTURE0);
-            if (is2d) {
-                GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId);
-            } else {
-                GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
-            }
+            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId);
+            // 给片段着色器中的采样器变量sample2d赋值
+            GLES30.glUniform1i(uTextureUnit, 0);
 
-            GLES30.glUniform4f(texCoord, 0f, 1f, 0f, 1f);
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 3);
+            // 绘制
+            indexBuffer.position(0);
+            GLES30.glDrawElements(GLES30.GL_TRIANGLES, index.length, GLES30.GL_UNSIGNED_SHORT, indexBuffer);
 
             UnityPlayer.UnitySendMessage("RenderImg", "updateFrame", "");
         }
 
-        private void loadTexture() {
-            //绑定到外部纹理上
-            GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
-            //设置纹理过滤参数
-            GLES30.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST);
-            GLES30.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
-            GLES30.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
-            GLES30.glTexParameterf(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
-            //解除纹理绑定
-            GLES30.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0);
-        }
-
-        private void loadTexture2D() {
-            //绑定到外部纹理上
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureId);
-            //设置纹理过滤参数
-            GLES30.glTexParameterf(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST);
-            GLES30.glTexParameterf(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR);
-            GLES30.glTexParameterf(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE);
-            GLES30.glTexParameterf(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE);
-            //解除纹理绑定
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0);
-        }
-
-        private int loadShader(int shaderType, String sourceCode) {
-            int shader = GLES30.glCreateShader(shaderType);
-            if (shader != 0) {
-                GLES30.glShaderSource(shader, sourceCode);
-                GLES30.glCompileShader(shader);
-                int[] compiled = new int[1];
-                GLES30.glGetShaderiv(shader, GLES30.GL_COMPILE_STATUS, compiled, 0);
-                if (compiled[0] == 0) {
-                    log("shader compiled failed. shader type: " + shaderType);
-                    log("shader compiled failed. shader: " + sourceCode);
-                    GLES30.glDeleteShader(shader);
-                    shader = 0;
-                }
-            }
-            return shader;
-        }
-
         private int createProgram(String vertexSource, String fragmentSource) {
-            int vertexShader = loadShader(GLES30.GL_VERTEX_SHADER, vertexSource);
+            int vertexShader = RenderUtil.compileShader(GLES30.GL_VERTEX_SHADER, vertexSource);
             if (vertexShader == 0) {
-                return 0;
+                throw new RuntimeException("vertexShader compile failed.");
             }
-            int pixelShader = loadShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource);
+            int pixelShader = RenderUtil.compileShader(GLES30.GL_FRAGMENT_SHADER, fragmentSource);
             if (pixelShader == 0) {
-                return 0;
+                throw new RuntimeException("fragmentShader compiled failed.");
             }
+
             int program = GLES30.glCreateProgram();
             if (program != 0) {
                 GLES30.glAttachShader(program, vertexShader);
@@ -257,40 +250,20 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
                 GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, linkStatus, 0);
                 if (linkStatus[0] != GLES30.GL_TRUE) {
                     log("link program failed. program:" + GLES30.glGetProgramInfoLog(program));
+                    GLES30.glDeleteProgram(program);
                     program = 0;
                 }
+                GLES30.glValidateProgram(program);
+                int[] validateStatus = new int[1];
+                GLES30.glGetProgramiv(program, GLES30.GL_VALIDATE_STATUS, validateStatus, 0);
+                if (validateStatus[0] == 0) {
+                    log("link program failed. program:" + GLES30.glGetProgramInfoLog(program));
+                    GLES30.glDeleteProgram(program);
+                    program = 0;
+                }
+                GLES30.glUseProgram(program);
             }
             return program;
-        }
-
-        private float[] vertices = new float[] {
-                0.0f, 0.5f,
-                -0.5f, -0.5f,
-                0.5f, -0.5f
-        };
-        private float[] textVertx = new float[] {
-                0f, 0f,
-                0f, 1f,
-                1f, 1f,
-                1f, 0f
-        };
-
-        private FloatBuffer getVertices(int change) {
-            if (change >= 60) {
-                vertices[5] = -1f;
-            } else {
-                vertices[5] = -0.5f;
-            }
-            if (change == 120) {
-                this.change = 0;
-            }
-            ByteBuffer vbb = ByteBuffer.allocateDirect(vertices.length * 4);
-            vbb.order(ByteOrder.nativeOrder());
-            FloatBuffer vertexBuf = vbb.asFloatBuffer();
-            vertexBuf.put(vertices);
-            vertexBuf.position(0);
-
-            return vertexBuf;
         }
     }
 
@@ -305,8 +278,7 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     @Override public void onUnityPlayerQuitted() {
     }
 
-    @Override protected void onNewIntent(Intent intent)
-    {
+    @Override protected void onNewIntent(Intent intent) {
         // To support deep linking, we need to make sure that the client can get access to
         // the last sent intent. The clients access this through a JNI api that allows them
         // to get the intent set on launch. To update that after launch we have to manually
@@ -316,8 +288,7 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // Quit Unity
-    @Override protected void onDestroy ()
-    {
+    @Override protected void onDestroy () {
         mUnityPlayer.destroy();
         super.onDestroy();
     }
@@ -326,8 +297,7 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     // onStart/onStop (the visibility callbacks) to determine when to pause/resume.
     // Otherwise it will be done in onPause/onResume as Unity has done historically to preserve
     // existing behavior.
-    @Override protected void onStop()
-    {
+    @Override protected void onStop() {
         super.onStop();
 
         if (!MultiWindowSupport.getAllowResizableWindow(this))
@@ -336,8 +306,8 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
         mUnityPlayer.pause();
     }
 
-    @Override protected void onStart()
-    {
+    @Override
+    protected void onStart() {
         super.onStart();
 
         if (!MultiWindowSupport.getAllowResizableWindow(this))
@@ -347,8 +317,8 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // Pause Unity
-    @Override protected void onPause()
-    {
+    @Override
+    protected void onPause() {
         super.onPause();
 
         MultiWindowSupport.saveMultiWindowMode(this);
@@ -360,8 +330,8 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // Resume Unity
-    @Override protected void onResume()
-    {
+    @Override
+    protected void onResume() {
         super.onResume();
 
         if (MultiWindowSupport.getAllowResizableWindow(this) && !MultiWindowSupport.isMultiWindowModeChangedToTrue(this))
@@ -371,15 +341,13 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // Low Memory Unity
-    @Override public void onLowMemory()
-    {
+    @Override public void onLowMemory() {
         super.onLowMemory();
         mUnityPlayer.lowMemory();
     }
 
     // Trim Memory Unity
-    @Override public void onTrimMemory(int level)
-    {
+    @Override public void onTrimMemory(int level) {
         super.onTrimMemory(level);
         if (level == TRIM_MEMORY_RUNNING_CRITICAL)
         {
@@ -388,23 +356,20 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     }
 
     // This ensures the layout will be correct.
-    @Override public void onConfigurationChanged(Configuration newConfig)
-    {
+    @Override public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         mUnityPlayer.configurationChanged(newConfig);
     }
 
     // Notify Unity of the focus change.
-    @Override public void onWindowFocusChanged(boolean hasFocus)
-    {
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         mUnityPlayer.windowFocusChanged(hasFocus);
     }
 
     // For some reason the multiple keyevent type is not supported by the ndk.
     // Force event injection by overriding dispatchKeyEvent().
-    @Override public boolean dispatchKeyEvent(KeyEvent event)
-    {
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_MULTIPLE)
             return mUnityPlayer.injectEvent(event);
         return super.dispatchKeyEvent(event);
