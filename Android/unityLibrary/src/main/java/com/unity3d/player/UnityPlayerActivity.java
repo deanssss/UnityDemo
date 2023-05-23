@@ -13,12 +13,14 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.View;
 import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
+
+import com.unity3d.player.util.RenderUtil;
+import com.unity3d.player.util.ResReadUtils;
 
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
@@ -34,6 +36,8 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
     protected UnityPlayer mUnityPlayer; // don't change the name of this variable; referenced from native code
     private EGL10 egl = ((EGL10) EGLContext.getEGL());
     private GLSurfaceView glSurfaceView;
+    private int counter = 0;
+    private int sharedTextureId = 0;
 
     // Override this in your custom UnityPlayerActivity to tweak the command line arguments passed to the Unity Android Player
     // The command line arguments are passed as a string, separated by spaces
@@ -61,25 +65,18 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
         mUnityPlayer.requestFocus();
 
         findViewById(R.id.action1_bt).setOnClickListener(v -> {
-            UnityPlayer.UnitySendMessage("Canvas", "setText", "hello~" + (i++));
+            UnityPlayer.UnitySendMessage("Canvas", "setText", "hello~" + (counter++));
         });
         findViewById(R.id.action2_bt).setOnClickListener(v -> {
-            startActivity(new Intent(this, TestActivity.class));
+            startActivity(new Intent(this, NativeSampleActivity.class));
         });
         findViewById(R.id.action3_bt).setOnClickListener(v -> {
-            mUnityPlayer.setVisibility(View.INVISIBLE);
-            mUnityPlayer.pause();
-            FrameLayout.LayoutParams lp = ((FrameLayout.LayoutParams) container.getLayoutParams());
-            lp.width = lp.width == -1 ? 700 : -1;
-            container.setLayoutParams(lp);
-            runOnUiThread(() ->{
-                mUnityPlayer.resume();
-                mUnityPlayer.setVisibility(View.VISIBLE);
-            });
+            startActivity(NativeDisplayActivity.createIntent(this, sharedTextureId));
         });
     }
 
     public void initUnitySurfaceView(int textureId, int width, int height) {
+        this.sharedTextureId = textureId;
         log("init unity surface. texture id:" + textureId);
         EGLContext unityContext = egl.eglGetCurrentContext();
         if (unityContext == EGL10.EGL_NO_CONTEXT) {
@@ -265,8 +262,6 @@ public class UnityPlayerActivity extends Activity implements IUnityPlayerLifecyc
             return program;
         }
     }
-
-    private int i = 0;
 
     // When Unity player unloaded move task to background
     @Override

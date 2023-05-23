@@ -41,5 +41,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:ignore="HardcodedText" />
+
+        <Button
+            android:id="@+id/action3_bt"
+            android:text="原生渲染上屏"
+            android:layout_gravity="bottom|center_horizontal"
+            android:background="#00ffffff"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            tools:ignore="HardcodedText" />
     </LinearLayout>
 </FrameLayout>

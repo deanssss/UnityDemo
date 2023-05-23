@@ -4,11 +4,13 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
-public class TestActivity extends Activity {
+import com.unity3d.player.camera.CameraSurfaceActivity;
+
+public class NativeSampleActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.test_activity);
+        setContentView(R.layout.native_sample_activity);
         findViewById(R.id.back_bt).setOnClickListener(v -> {
             onBackPressed();
         });

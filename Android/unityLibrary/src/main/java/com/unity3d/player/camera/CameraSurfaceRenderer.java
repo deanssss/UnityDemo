@@ -1,4 +1,4 @@
-package com.unity3d.player;
+package com.unity3d.player.camera;
 
 import android.app.Activity;
 import android.content.Context;
@@ -8,6 +8,10 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES30;
 import android.opengl.GLSurfaceView;
 import android.view.Surface;
+
+import com.unity3d.player.R;
+import com.unity3d.player.util.RenderUtil;
+import com.unity3d.player.util.ResReadUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

@@ -1,4 +1,4 @@
-package com.unity3d.player;
+package com.unity3d.player.util;
 
 import android.content.Context;
 import android.content.res.Resources;

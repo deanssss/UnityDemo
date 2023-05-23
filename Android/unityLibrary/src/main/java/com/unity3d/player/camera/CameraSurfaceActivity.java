@@ -1,4 +1,4 @@
-package com.unity3d.player;
+package com.unity3d.player.camera;
 
 import android.Manifest;
 import android.app.Activity;

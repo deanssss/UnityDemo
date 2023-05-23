@@ -28,7 +28,7 @@
     </activity>
 
     <activity
-        android:name=".TestActivity"
+        android:name=".NativeSampleActivity"
         android:theme="@style/UnityThemeSelector"
         android:screenOrientation="sensorLandscape"
         android:launchMode="singleTask"
@@ -37,11 +37,18 @@
         android:resizeableActivity="false" />
 
     <activity
-        android:name=".CameraSurfaceActivity"
+        android:name=".camera.CameraSurfaceActivity"
         android:theme="@style/UnityThemeSelector"
         android:screenOrientation="sensorLandscape"
         android:launchMode="singleTask"
-        android:taskAffinity="com.unity3d.player.test"
+        android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
+        android:resizeableActivity="false" />
+
+    <activity
+        android:name=".NativeDisplayActivity"
+        android:theme="@style/UnityThemeSelector"
+        android:screenOrientation="sensorLandscape"
+        android:launchMode="singleTask"
         android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
         android:resizeableActivity="false" />
 

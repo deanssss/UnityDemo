@@ -1,4 +1,4 @@
-package com.unity3d.player;
+package com.unity3d.player.util;
 import android.opengl.GLES30;
 
 import java.nio.ByteBuffer;
