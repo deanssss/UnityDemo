@@ -74,3 +74,6 @@ crashlytics-build.properties
 # Windows files
 Thumbs.db
 Desktop.ini
+
+# plastic
+.plastic
